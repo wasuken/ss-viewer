@@ -3,3 +3,4 @@
 *-lock.*
 node_modules/
 assets/js/
+config.toml

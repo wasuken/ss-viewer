@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
+	"github.com/BurntSushi/toml"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
@@ -15,6 +16,12 @@ import (
 	"time"
 )
 
+type Config struct {
+	Url    string
+	DatUrl string
+	DbPath string
+}
+
 type SS struct {
 	Id       string
 	Title    string
@@ -22,8 +29,13 @@ type SS struct {
 }
 
 var SSS []SS
+var UrlConfig Config
 
 func main() {
+	_, err := toml.DecodeFile("./config.toml", &UrlConfig)
+	if err != nil {
+		panic(err)
+	}
 	SSS = listSS()
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
@@ -45,7 +57,7 @@ func main() {
 		}
 	})
 	router.GET("/getDat", func(c *gin.Context) {
-		res, err := http.Get("https://ex14.vip2ch.com/news4ssnip/threadlist.html")
+		res, err := http.Get(UrlConfig.Url)
 		if err != nil {
 			panic(err)
 		}
@@ -61,38 +73,40 @@ func main() {
 				return
 			}
 			href, _ := s.Attr("href")
-			split := strings.Split(href, "/")
-			id := split[len(split)-2]
-
-			db, err := sql.Open("sqlite3", "./ss.db")
-			if err != nil {
-				panic(err)
-			}
-			fmt.Println("id: " + id + ",cnt:" + strconv.Itoa(cnt))
-			if containsKey(id) {
-				fmt.Println(s.Text())
-				q := "insert into ss(title, id, contents) values(?,?,?)"
-				stmt, _ := db.Prepare(q)
-				_, _ = stmt.Exec(s.Text(), id, getDat(id))
-				defer stmt.Close()
-				time.Sleep(3 * time.Second)
-				fmt.Println("inserted")
-			} else {
-				q := "update ss set contents = ? where id = ?"
-				stmt, _ := db.Prepare(q)
-				_, _ = stmt.Exec(getDat(id), id)
-				defer stmt.Close()
-				fmt.Println("updated")
-			}
-			time.Sleep(3 * time.Second)
-			defer db.Close()
+			updateOrInsert(href, s.Text())
 			cnt++
 		})
 	})
 	router.Run(":8080")
 }
+func updateOrInsert(href, text string) {
+	split := strings.Split(href, "/")
+	id := split[len(split)-2]
+
+	db, err := sql.Open("sqlite3", UrlConfig.DbPath)
+	if err != nil {
+		panic(err)
+	}
+	if containsKey(id) {
+		fmt.Println(text)
+		q := "insert into ss(title, id, contents) values(?,?,?)"
+		stmt, _ := db.Prepare(q)
+		_, _ = stmt.Exec(text, id, getDat(id))
+		defer stmt.Close()
+		time.Sleep(3 * time.Second)
+		fmt.Println("inserted")
+	} else {
+		q := "update ss set contents = ? where id = ?"
+		stmt, _ := db.Prepare(q)
+		_, _ = stmt.Exec(getDat(id), id)
+		defer stmt.Close()
+		fmt.Println("updated")
+	}
+	time.Sleep(3 * time.Second)
+	defer db.Close()
+}
 func containsKey(id string) bool {
-	db, err := sql.Open("sqlite3", "./ss.db")
+	db, err := sql.Open("sqlite3", UrlConfig.DbPath)
 	if err != nil {
 		panic(err)
 	}
@@ -109,7 +123,7 @@ func containsKey(id string) bool {
 	}
 }
 func getDat(id string) string {
-	res, err := http.Get("http://ex14.vip2ch.com/news4ssnip/dat/" + id + ".dat")
+	res, err := http.Get(UrlConfig.DatUrl + id + ".dat")
 	if err != nil {
 		panic(err)
 	}
@@ -125,7 +139,7 @@ func getDat(id string) string {
 func listSS() []SS {
 	var sss []SS
 
-	db, err := sql.Open("sqlite3", "./ss.db")
+	db, err := sql.Open("sqlite3", UrlConfig.DbPath)
 	if err != nil {
 		panic(err)
 	}
