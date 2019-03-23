@@ -1,6 +1,16 @@
 import React, { Component } from 'react';
 
 class App extends Component{
+    style = { width: "1.2em",
+              lineHeight: "1.2em",
+              listStyleType: "none",
+              border: "1px solid blue",
+              float: "left",
+              margin: "0.1em",
+              padding: "0px",
+              fontFamily: "Arial,sans-serif",
+              fontWeight: "bold",
+              textAlign: "center"}
     constructor(props){
         super(props);
         this.state = {
@@ -41,8 +51,9 @@ class App extends Component{
     }
     getLink(){
         let lst = [];
-        for(let i=1;i<this.state.page+1;i++){
-            lst.push(<a className="page" href="#" onClick={() => this.getJson(i)}>{i}</a>);
+        let page = this.state.page > 10? 10: this.state.page;
+        for(let i=1;i<page+1;i++){
+            lst.push(<a className="page" href="#" onClick={() => this.getJson(i)}><li style={this.style}>{i}</li></a>);
         }
         return lst;
     }
@@ -55,12 +66,14 @@ class App extends Component{
         return (
             <div>
               <div style={{float:"left", width:"30%"}}>
-                <select id="select" onChange={this.clickAction}>
+                <select id="select" onChange={this.clickAction} size="10">
                   {titles}
                 </select>
-                <div>{lst}</div>
+                <div>
+                  {lst}
+                </div>
               </div>
-              <div style={{float:"right", width:"70%", height: "100%",overflowY: "scroll"}}
+              <div style={{float:"left", width:"70%", height: "100%",overflowY: "scroll"}}
                    className="text" dangerouslySetInnerHTML={{__html: this.state.displayContents}}>
               </div>
             </div>
